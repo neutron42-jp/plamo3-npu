@@ -1,0 +1,1207 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PLaMo-3 Translate 0.8B — AMD Ryzen AI NPU</title>
+  <style>
+    :root {
+      --bg-page: #f8f9fa;
+      --bg-surface: #ffffff;
+      --bg-target: #f4f7fb;
+      --border: #dadce0;
+      --border-strong: #c4c7c5;
+      --text-primary: #202124;
+      --text-secondary: #5f6368;
+      --blue: #1a73e8;
+      --blue-hover: #1557b0;
+      --blue-tint: #e8f0fe;
+      --green: #137333;
+      --green-bg: #e6f4ea;
+      --amber: #b06000;
+      --amber-bg: #fef7e0;
+      --red: #c5221f;
+      --red-bg: #fce8e6;
+      --shadow: 0 1px 3px rgba(60, 64, 67, 0.14), 0 4px 12px rgba(60, 64, 67, 0.06);
+      --radius: 12px;
+      --font-sans: "Google Sans", "Noto Sans JP", "Hiragino Kaku Gothic ProN", "Yu Gothic", system-ui, -apple-system, sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: var(--bg-page);
+      color: var(--text-primary);
+      font-family: var(--font-sans);
+      line-height: 1.5;
+    }
+
+    /* Header */
+    .topbar {
+      background: var(--bg-surface);
+      border-bottom: 1px solid var(--border);
+      padding: 12px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 20px;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+    }
+
+    .brand-icon {
+      width: 34px;
+      height: 34px;
+      border-radius: 8px;
+      background: linear-gradient(135deg, #1a73e8 0%, #34a853 100%);
+      color: #fff;
+      display: grid;
+      place-items: center;
+      font-size: 16px;
+      font-weight: 700;
+      box-shadow: 0 1px 3px rgba(26, 115, 232, 0.3);
+    }
+
+    .brand-sub {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      background: #f1f3f4;
+      padding: 2px 10px;
+      border-radius: 999px;
+    }
+
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 12px;
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: 500;
+      background: var(--green-bg);
+      color: var(--green);
+      border: 1px solid rgba(19, 115, 51, 0.16);
+    }
+
+    .status-pill.busy {
+      background: var(--blue-tint);
+      color: var(--blue);
+      border-color: rgba(26, 115, 232, 0.25);
+    }
+
+    .status-pill.error {
+      background: var(--red-bg);
+      color: var(--red);
+      border-color: rgba(197, 34, 31, 0.25);
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: currentColor;
+    }
+
+    .status-pill.busy .status-dot {
+      animation: pulse 1s infinite ease-in-out;
+    }
+
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.4); opacity: 0.45; }
+    }
+
+    /* Main Container */
+    .container {
+      max-width: 1200px;
+      margin: 22px auto 40px;
+      padding: 0 20px;
+    }
+
+    /* Translate Card */
+    .translate-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    /* Language Selector Bar */
+    .lang-bar {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      align-items: center;
+      border-bottom: 1px solid var(--border);
+      background: var(--bg-surface);
+      padding: 4px 12px;
+      gap: 8px;
+    }
+
+    .lang-side {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      flex-wrap: wrap;
+      min-height: 44px;
+    }
+
+    .lang-tab {
+      border: none;
+      background: transparent;
+      color: var(--text-secondary);
+      font-size: 14px;
+      font-weight: 500;
+      padding: 10px 12px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+      position: relative;
+      white-space: nowrap;
+    }
+
+    .lang-tab:hover {
+      background: #f1f3f4;
+      color: var(--text-primary);
+    }
+
+    .lang-tab.active {
+      color: var(--blue);
+      font-weight: 600;
+      background: var(--blue-tint);
+    }
+
+    .lang-select {
+      border: 1px solid var(--border);
+      background: var(--bg-surface);
+      color: var(--text-primary);
+      font-size: 13px;
+      padding: 6px 10px;
+      border-radius: 8px;
+      cursor: pointer;
+      max-width: 210px;
+      margin-left: 4px;
+    }
+
+    .lang-select:focus {
+      outline: 2px solid var(--blue);
+      border-color: var(--blue);
+    }
+
+    .swap-btn {
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
+      border: 1px solid transparent;
+      background: transparent;
+      color: var(--text-secondary);
+      font-size: 18px;
+      cursor: pointer;
+      display: grid;
+      place-items: center;
+      transition: background 0.15s, transform 0.15s;
+    }
+
+    .swap-btn:hover:not(:disabled) {
+      background: #f1f3f4;
+      color: var(--text-primary);
+    }
+
+    .swap-btn:active:not(:disabled) {
+      transform: rotate(180deg);
+    }
+
+    .swap-btn:disabled {
+      opacity: 0.35;
+      cursor: not-allowed;
+    }
+
+    /* Style sub-bar when target=ja */
+    .style-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 10px;
+      padding: 8px 16px;
+      background: #fafbfc;
+      border-bottom: 1px solid var(--border);
+      font-size: 13px;
+    }
+
+    .style-group {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    .style-label {
+      color: var(--text-secondary);
+      font-weight: 500;
+      margin-right: 4px;
+    }
+
+    .chip-btn {
+      border: 1px solid var(--border);
+      background: var(--bg-surface);
+      color: var(--text-secondary);
+      font-size: 12.5px;
+      font-weight: 500;
+      padding: 4px 10px;
+      border-radius: 999px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .chip-btn:hover {
+      background: #f1f3f4;
+      color: var(--text-primary);
+    }
+
+    .chip-btn.active {
+      border-color: var(--blue);
+      background: var(--blue-tint);
+      color: var(--blue);
+      font-weight: 600;
+    }
+
+    /* Dual Panes */
+    .panes {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+    }
+
+    .pane {
+      display: flex;
+      flex-direction: column;
+      min-height: 280px;
+      position: relative;
+    }
+
+    .pane-source {
+      border-right: 1px solid var(--border);
+      background: var(--bg-surface);
+    }
+
+    .pane-target {
+      background: var(--bg-target);
+    }
+
+    .pane-body {
+      flex: 1;
+      padding: 18px 46px 14px 20px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .source-textarea {
+      width: 100%;
+      flex: 1;
+      min-height: 190px;
+      border: none;
+      outline: none;
+      resize: vertical;
+      font-family: inherit;
+      font-size: 20px;
+      line-height: 1.55;
+      color: var(--text-primary);
+      background: transparent;
+    }
+
+    .source-textarea::placeholder {
+      color: #80868b;
+    }
+
+    .clear-btn {
+      position: absolute;
+      top: 14px;
+      right: 12px;
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      border: none;
+      background: transparent;
+      color: var(--text-secondary);
+      font-size: 18px;
+      cursor: pointer;
+      display: grid;
+      place-items: center;
+    }
+
+    .clear-btn:hover {
+      background: #f1f3f4;
+      color: var(--text-primary);
+    }
+
+    .clear-btn[hidden] {
+      display: none;
+    }
+
+    .target-output {
+      flex: 1;
+      min-height: 190px;
+      font-size: 20px;
+      line-height: 1.55;
+      color: var(--text-primary);
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .target-output.placeholder {
+      color: #80868b;
+    }
+
+    .cursor-blink {
+      display: inline-block;
+      width: 2px;
+      height: 1.1em;
+      background: var(--blue);
+      vertical-align: text-bottom;
+      margin-left: 2px;
+      animation: blink 0.8s steps(2) infinite;
+    }
+
+    @keyframes blink {
+      0% { opacity: 1; }
+      50% { opacity: 0; }
+    }
+
+    .pane-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 10px 16px 14px;
+      border-top: 1px solid rgba(218, 220, 224, 0.55);
+      flex-wrap: wrap;
+    }
+
+    .footer-left, .footer-right {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .meta-text {
+      font-size: 12.5px;
+      color: var(--text-secondary);
+    }
+
+    .toggle-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12.5px;
+      color: var(--text-secondary);
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .toggle-label input {
+      accent-color: var(--blue);
+      cursor: pointer;
+    }
+
+    .btn-primary {
+      border: none;
+      background: var(--blue);
+      color: #fff;
+      font-size: 13.5px;
+      font-weight: 600;
+      padding: 8px 16px;
+      border-radius: 8px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: background 0.15s;
+    }
+
+    .btn-primary:hover:not(:disabled) {
+      background: var(--blue-hover);
+    }
+
+    .btn-primary:disabled {
+      opacity: 0.65;
+      cursor: not-allowed;
+    }
+
+    .btn-stop {
+      border: 1px solid rgba(197, 34, 31, 0.35);
+      background: var(--red-bg);
+      color: var(--red);
+      font-size: 13.5px;
+      font-weight: 600;
+      padding: 8px 14px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    .btn-stop:hover {
+      background: #fad2cf;
+    }
+
+    .btn-stop[hidden] {
+      display: none;
+    }
+
+    .btn-secondary {
+      border: 1px solid var(--border);
+      background: var(--bg-surface);
+      color: var(--text-primary);
+      font-size: 12.5px;
+      font-weight: 500;
+      padding: 6px 12px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    .btn-secondary:hover:not(:disabled) {
+      background: #f1f3f4;
+    }
+
+    .btn-secondary:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+
+    .perf-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 12px;
+      color: #174ea6;
+      background: #e8f0fe;
+      padding: 5px 10px;
+      border-radius: 8px;
+    }
+
+    .error-banner {
+      margin: 12px 16px 0;
+      padding: 10px 14px;
+      border-radius: 8px;
+      background: var(--red-bg);
+      color: var(--red);
+      font-size: 13px;
+      border: 1px solid rgba(197, 34, 31, 0.2);
+    }
+
+    /* Samples & Advanced Options */
+    .extras {
+      margin-top: 16px;
+      display: grid;
+      gap: 14px;
+    }
+
+    .samples-box {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .samples-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      margin-right: 4px;
+    }
+
+    details.adv-panel {
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 10px 16px;
+    }
+
+    details.adv-panel summary {
+      cursor: pointer;
+      font-size: 13.5px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      user-select: none;
+    }
+
+    .adv-grid {
+      margin-top: 12px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+    }
+
+    .adv-field label {
+      display: block;
+      font-size: 12.5px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      margin-bottom: 5px;
+    }
+
+    .adv-field input, .adv-field textarea {
+      width: 100%;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px 10px;
+      font-family: inherit;
+      font-size: 13px;
+      color: var(--text-primary);
+    }
+
+    .adv-field textarea {
+      min-height: 70px;
+      resize: vertical;
+    }
+
+    @media (max-width: 820px) {
+      .lang-bar {
+        grid-template-columns: 1fr;
+      }
+      .swap-btn {
+        justify-self: center;
+        transform: rotate(90deg);
+      }
+      .panes {
+        grid-template-columns: 1fr;
+      }
+      .pane-source {
+        border-right: none;
+        border-bottom: 1px solid var(--border);
+      }
+      .adv-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-icon">翻</div>
+      <span>PLaMo-3 Translate</span>
+      <span class="brand-sub">0.8B INT4 Full-Fusion</span>
+    </div>
+    <div id="statusPill" class="status-pill">
+      <span class="status-dot"></span>
+      <span id="statusText">AMD Ryzen AI NPU • Ready</span>
+    </div>
+  </header>
+
+  <main class="container">
+    <section class="translate-card">
+      <!-- Language Bar -->
+      <div class="lang-bar">
+        <div class="lang-side" id="srcSide">
+          <button class="lang-tab" data-src="auto">言語を検出</button>
+          <button class="lang-tab active" data-src="en">英語</button>
+          <button class="lang-tab" data-src="ja">日本語</button>
+          <button class="lang-tab" data-src="zh-hans">中国語(簡体)</button>
+          <select id="srcSelect" class="lang-select" aria-label="原文言語"></select>
+        </div>
+
+        <button id="swapBtn" class="swap-btn" title="言語とテキストを入れ替える">⇄</button>
+
+        <div class="lang-side" id="tgtSide">
+          <button class="lang-tab active" data-tgt="ja">日本語</button>
+          <button class="lang-tab" data-tgt="ja-easy">やさしい日本語</button>
+          <button class="lang-tab" data-tgt="en">英語</button>
+          <button class="lang-tab" data-tgt="zh-hans">中国語(簡体)</button>
+          <select id="tgtSelect" class="lang-select" aria-label="翻訳先言語"></select>
+        </div>
+      </div>
+
+      <!-- Optional Japanese Style Bar -->
+      <div class="style-bar">
+        <div class="style-group" id="formGroup">
+          <span class="style-label">日本語の文体:</span>
+          <button class="chip-btn active" data-form="">標準</button>
+          <button class="chip-btn" data-form="polite">敬体 (です・ます)</button>
+          <button class="chip-btn" data-form="plain">常体 (だ・である)</button>
+        </div>
+        <div class="style-group">
+          <span class="style-label">最大生成トークン:</span>
+          <select id="maxTokensSelect" class="lang-select" style="padding: 3px 8px;">
+            <option value="256">256</option>
+            <option value="512" selected>512</option>
+            <option value="1024">1024</option>
+            <option value="2048">2048</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Error Banner -->
+      <div id="errorBanner" class="error-banner" hidden></div>
+
+      <!-- Dual Translation Panes -->
+      <div class="panes">
+        <div class="pane pane-source">
+          <div class="pane-body">
+            <textarea
+              id="sourceText"
+              class="source-textarea"
+              placeholder="翻訳したい文章を入力してください（入力で自動翻訳 / Ctrl+Enter で即時翻訳）"
+              spellcheck="false"
+            ></textarea>
+            <button id="clearBtn" class="clear-btn" title="クリア" hidden>✕</button>
+          </div>
+          <div class="pane-footer">
+            <div class="footer-left">
+              <span id="charCount" class="meta-text">0 文字</span>
+              <label class="toggle-label">
+                <input type="checkbox" id="autoTranslateToggle" checked />
+                自動翻訳 (リアルタイム)
+              </label>
+            </div>
+            <div class="footer-right">
+              <button id="stopBtn" class="btn-stop" hidden>停止</button>
+              <button id="translateBtn" class="btn-primary">翻訳する</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="pane pane-target">
+          <div class="pane-body">
+            <div id="targetOutput" class="target-output placeholder">翻訳結果がここにリアルタイム表示されます</div>
+          </div>
+          <div class="pane-footer">
+            <div class="footer-left">
+              <button id="copyBtn" class="btn-secondary" disabled>コピー</button>
+              <button id="reuseBtn" class="btn-secondary" disabled>原文へ送る</button>
+            </div>
+            <div class="footer-right">
+              <div id="perfBadge" class="perf-badge" hidden></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Samples & Advanced Context/Glossary -->
+    <section class="extras">
+      <div class="samples-box">
+        <span class="samples-title">サンプルで試す:</span>
+        <button class="chip-btn" data-sample="en_biz">英語 → 日本語 (ビジネス)</button>
+        <button class="chip-btn" data-sample="en_npu">NPU技術長文 (速度体感)</button>
+        <button class="chip-btn" data-sample="ja_en">日本語 → 英語</button>
+        <button class="chip-btn" data-sample="ja_easy">日本語 → やさしい日本語</button>
+        <button class="chip-btn" data-sample="zh_ja">中国語 → 日本語</button>
+        <button class="chip-btn" data-sample="glossary">用語集指定あり (英語 → 日本語)</button>
+      </div>
+
+      <details id="advPanel" class="adv-panel">
+        <summary>詳細オプション（文脈コンテキスト・用語集）</summary>
+        <div class="adv-grid">
+          <div class="adv-field">
+            <label for="contextInput">文脈 / コンテキスト (Context)</label>
+            <input id="contextInput" type="text" placeholder="例: Software engineering release notes" />
+          </div>
+          <div class="adv-field">
+            <label for="glossaryInput">用語集 (1行ごとに 原語 -> 訳語)</label>
+            <textarea id="glossaryInput" placeholder="例:&#10;NPU -> ニューラルプロセッサ&#10;latency -> レイテンシ"></textarea>
+          </div>
+        </div>
+      </details>
+    </section>
+  </main>
+
+  <script>
+    const SAMPLES = {
+      en_biz: {
+        src: "en",
+        tgt: "ja",
+        form: "",
+        text: "The meeting has been rescheduled for next Monday. Please share the updated agenda with the engineering team before Friday afternoon."
+      },
+      en_npu: {
+        src: "en",
+        tgt: "ja",
+        form: "",
+        text: "The AMD Ryzen AI neural processing unit accelerates transformer inference by fusing layer normalization, query-key-value projections, rotary position embeddings, multi-head attention, and gated MLP blocks into compact control-packet dispatches on XDNA2 hardware while maintaining numerical equivalence with CPU execution."
+      },
+      ja_en: {
+        src: "ja",
+        tgt: "en",
+        form: "",
+        text: "このモデルでは、アテンション計算やMLPブロックをAMD Ryzen AI NPU上の制御パケットへ統合することで、ローカル環境のまま高速かつ省電力な翻訳を実現しています。"
+      },
+      ja_easy: {
+        src: "ja",
+        tgt: "ja-easy",
+        form: "",
+        text: "台風接近に伴い、本日の午後3時以降は公共交通機関の計画運休が実施される可能性がありますので、早めの帰宅を心がけてください。"
+      },
+      zh_ja: {
+        src: "zh-hans",
+        tgt: "ja",
+        form: "",
+        text: "这款本地部署的翻译模型能够在神经网络处理器上高速运行，无需依赖云端服务器即可完成多语言实时互译。"
+      },
+      glossary: {
+        src: "en",
+        tgt: "ja",
+        form: "polite",
+        context: "AMD Ryzen AI hardware documentation",
+        glossary: "NPU -> ニューラルプロセッサ\nDynamicDispatch -> 動的ディスパッチ",
+        text: "DynamicDispatch reduces host synchronization overhead when running quantized transformer layers on the NPU."
+      }
+    };
+
+    const state = {
+      sourceLang: "en",
+      targetLang: "ja",
+      form: "",
+      languages: [],
+      abortController: null,
+      debounceTimer: null,
+      lastTranslation: ""
+    };
+
+    const el = {
+      statusPill: document.getElementById("statusPill"),
+      statusText: document.getElementById("statusText"),
+      srcSelect: document.getElementById("srcSelect"),
+      tgtSelect: document.getElementById("tgtSelect"),
+      swapBtn: document.getElementById("swapBtn"),
+      formGroup: document.getElementById("formGroup"),
+      maxTokensSelect: document.getElementById("maxTokensSelect"),
+      sourceText: document.getElementById("sourceText"),
+      clearBtn: document.getElementById("clearBtn"),
+      charCount: document.getElementById("charCount"),
+      autoTranslateToggle: document.getElementById("autoTranslateToggle"),
+      translateBtn: document.getElementById("translateBtn"),
+      stopBtn: document.getElementById("stopBtn"),
+      targetOutput: document.getElementById("targetOutput"),
+      copyBtn: document.getElementById("copyBtn"),
+      reuseBtn: document.getElementById("reuseBtn"),
+      perfBadge: document.getElementById("perfBadge"),
+      errorBanner: document.getElementById("errorBanner"),
+      advPanel: document.getElementById("advPanel"),
+      contextInput: document.getElementById("contextInput"),
+      glossaryInput: document.getElementById("glossaryInput")
+    };
+
+    function setStatus(mode, text) {
+      el.statusPill.className = "status-pill" + (mode ? " " + mode : "");
+      el.statusText.textContent = text;
+    }
+
+    function showError(msg) {
+      if (!msg) {
+        el.errorBanner.hidden = true;
+        el.errorBanner.textContent = "";
+      } else {
+        el.errorBanner.hidden = false;
+        el.errorBanner.textContent = msg;
+      }
+    }
+
+    function populateLanguageSelects(languages) {
+      state.languages = languages;
+      el.srcSelect.innerHTML = "";
+      const autoOpt = document.createElement("option");
+      autoOpt.value = "auto";
+      autoOpt.textContent = "言語を検出 (auto)";
+      el.srcSelect.appendChild(autoOpt);
+
+      el.tgtSelect.innerHTML = "";
+      for (const lang of languages) {
+        const sOpt = document.createElement("option");
+        sOpt.value = lang.code;
+        sOpt.textContent = lang.name;
+        el.srcSelect.appendChild(sOpt);
+
+        const tOpt = document.createElement("option");
+        tOpt.value = lang.code;
+        tOpt.textContent = lang.name;
+        el.tgtSelect.appendChild(tOpt);
+      }
+      syncLanguageUI();
+    }
+
+    function syncLanguageUI() {
+      el.srcSelect.value = state.sourceLang;
+      el.tgtSelect.value = state.targetLang;
+
+      document.querySelectorAll("[data-src]").forEach(btn => {
+        btn.classList.toggle("active", btn.dataset.src === state.sourceLang);
+      });
+      document.querySelectorAll("[data-tgt]").forEach(btn => {
+        btn.classList.toggle("active", btn.dataset.tgt === state.targetLang);
+      });
+
+      const isAuto = state.sourceLang === "auto";
+      el.swapBtn.disabled = isAuto;
+      el.swapBtn.title = isAuto ? "原文言語を選択すると入れ替えられます" : "原文と訳文の言語を入れ替える";
+
+      const isJa = state.targetLang === "ja";
+      el.formGroup.style.opacity = isJa ? "1" : "0.4";
+      el.formGroup.querySelectorAll("button").forEach(btn => {
+        btn.disabled = !isJa;
+        btn.classList.toggle("active", isJa && btn.dataset.form === state.form);
+      });
+    }
+
+    function renderTarget(text, streaming = false) {
+      el.targetOutput.innerHTML = "";
+      if (!text && !streaming) {
+        el.targetOutput.classList.add("placeholder");
+        el.targetOutput.textContent = "翻訳結果がここにリアルタイム表示されます";
+        el.copyBtn.disabled = true;
+        el.reuseBtn.disabled = true;
+        return;
+      }
+      el.targetOutput.classList.remove("placeholder");
+      const textNode = document.createTextNode(text);
+      el.targetOutput.appendChild(textNode);
+      if (streaming) {
+        const cursor = document.createElement("span");
+        cursor.className = "cursor-blink";
+        el.targetOutput.appendChild(cursor);
+      }
+      el.copyBtn.disabled = !text;
+      el.reuseBtn.disabled = !text;
+    }
+
+    function setTranslatingState(isBusy) {
+      el.stopBtn.hidden = !isBusy;
+      el.translateBtn.disabled = isBusy;
+    }
+
+    function updatePerfBadge(stats) {
+      if (!stats) {
+        el.perfBadge.hidden = true;
+        return;
+      }
+      el.perfBadge.hidden = false;
+      const parts = [];
+      if (stats.chunks_total && stats.chunks_total > 1) {
+        if (stats.chunk_index && stats.chunk_index <= stats.chunks_total && !stats.done) {
+          parts.push(`Chunk ${stats.chunk_index}/${stats.chunks_total}`);
+        } else {
+          parts.push(`${stats.chunks_total} chunks`);
+        }
+      }
+      if (stats.prefill_ms !== undefined) {
+        parts.push(`Prefill ${stats.prefill_ms.toFixed(1)} ms`);
+      }
+      const tps = stats.steady_tok_per_s || stats.tok_per_s;
+      if (tps) {
+        parts.push(`${tps.toFixed(1)} tok/s`);
+      }
+      if (stats.prompt_tokens !== undefined && stats.output_tokens !== undefined) {
+        parts.push(`${stats.prompt_tokens} → ${stats.output_tokens} tok`);
+      }
+      el.perfBadge.textContent = parts.join(" • ");
+    }
+
+    async function runTranslate() {
+      const text = el.sourceText.value;
+      showError("");
+
+      if (!text.trim()) {
+        if (state.abortController) {
+          state.abortController.abort();
+          state.abortController = null;
+        }
+        state.lastTranslation = "";
+        renderTarget("", false);
+        updatePerfBadge(null);
+        setTranslatingState(false);
+        setStatus("", "AMD Ryzen AI NPU • Ready");
+        return;
+      }
+
+      if (state.abortController) {
+        state.abortController.abort();
+      }
+      const controller = new AbortController();
+      state.abortController = controller;
+
+      setTranslatingState(true);
+      setStatus("busy", "Translating on AMD Ryzen AI NPU...");
+      let accumulated = "";
+      let metaStats = {};
+      renderTarget("", true);
+
+      try {
+        const res = await fetch("/api/translate/stream", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          signal: controller.signal,
+          body: JSON.stringify({
+            text,
+            source_lang: state.sourceLang,
+            target_lang: state.targetLang,
+            form: state.targetLang === "ja" ? state.form : "",
+            context: el.contextInput.value,
+            glossary: el.glossaryInput.value,
+            max_new_tokens: Number(el.maxTokensSelect.value)
+          })
+        });
+
+        if (!res.ok) {
+          let errMsg = `HTTP ${res.status}`;
+          try {
+            const j = await res.json();
+            if (j.error) errMsg = j.error;
+          } catch (_) {}
+          throw new Error(errMsg);
+        }
+
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder("utf-8");
+        let buffer = "";
+
+        while (true) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+
+          let sepIdx;
+          while ((sepIdx = buffer.indexOf("\n\n")) !== -1) {
+            const rawEvent = buffer.slice(0, sepIdx);
+            buffer = buffer.slice(sepIdx + 2);
+            if (!rawEvent.trim()) continue;
+
+            let eventType = "message";
+            let dataLine = "";
+            for (const line of rawEvent.split("\n")) {
+              if (line.startsWith("event:")) {
+                eventType = line.slice(6).trim();
+              } else if (line.startsWith("data:")) {
+                dataLine += line.slice(5).trim();
+              }
+            }
+            if (!dataLine) continue;
+            const payload = JSON.parse(dataLine);
+
+            if (eventType === "meta") {
+              metaStats = {
+                ...metaStats,
+                chunk_index: payload.chunk_index,
+                chunks_total: payload.chunks_total,
+                prompt_tokens: payload.prompt_tokens,
+                prefill_ms: payload.prefill_ms,
+                output_tokens: payload.output_tokens ?? metaStats.output_tokens ?? 0,
+                done: false
+              };
+              if (payload.chunks_total && payload.chunks_total > 1) {
+                setStatus("busy", `Translating on NPU (chunk ${payload.chunk_index}/${payload.chunks_total})...`);
+              }
+              updatePerfBadge(metaStats);
+            } else if (eventType === "token") {
+              accumulated += payload.delta || "";
+              metaStats = {
+                ...metaStats,
+                output_tokens: payload.output_tokens,
+                tok_per_s: payload.tok_per_s,
+                steady_tok_per_s: payload.steady_tok_per_s
+              };
+              renderTarget(accumulated, true);
+              updatePerfBadge(metaStats);
+            } else if (eventType === "done") {
+              accumulated = payload.translation ?? accumulated;
+              state.lastTranslation = accumulated;
+              renderTarget(accumulated, false);
+              updatePerfBadge({ ...payload, done: true });
+              setStatus("", "AMD Ryzen AI NPU • Ready");
+            } else if (eventType === "error") {
+              throw new Error(payload.message || "Translation failed");
+            } else if (eventType === "cancelled") {
+              renderTarget(accumulated, false);
+              return;
+            }
+          }
+        }
+      } catch (err) {
+        if (err.name === "AbortError") {
+          if (state.abortController === controller) {
+            state.lastTranslation = accumulated;
+            renderTarget(accumulated, false);
+            setStatus("", "停止しました");
+          }
+          return;
+        }
+        showError(err.message);
+        renderTarget(accumulated, false);
+        setStatus("error", "NPU Error");
+      } finally {
+        if (state.abortController === controller) {
+          state.abortController = null;
+          setTranslatingState(false);
+        }
+      }
+    }
+
+    function scheduleAutoTranslate() {
+      if (!el.autoTranslateToggle.checked) return;
+      clearTimeout(state.debounceTimer);
+      state.debounceTimer = setTimeout(runTranslate, 300);
+    }
+
+    // Event bindings
+    document.querySelectorAll("[data-src]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        state.sourceLang = btn.dataset.src;
+        syncLanguageUI();
+        if (el.sourceText.value.trim()) runTranslate();
+      });
+    });
+
+    document.querySelectorAll("[data-tgt]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        state.targetLang = btn.dataset.tgt;
+        syncLanguageUI();
+        if (el.sourceText.value.trim()) runTranslate();
+      });
+    });
+
+    el.srcSelect.addEventListener("change", () => {
+      state.sourceLang = el.srcSelect.value;
+      syncLanguageUI();
+      if (el.sourceText.value.trim()) runTranslate();
+    });
+
+    el.tgtSelect.addEventListener("change", () => {
+      state.targetLang = el.tgtSelect.value;
+      syncLanguageUI();
+      if (el.sourceText.value.trim()) runTranslate();
+    });
+
+    el.swapBtn.addEventListener("click", () => {
+      if (state.sourceLang === "auto") return;
+      const oldSrc = state.sourceLang;
+      const oldTgt = state.targetLang === "ja-easy" ? "ja" : state.targetLang;
+      state.sourceLang = oldTgt;
+      state.targetLang = oldSrc;
+      if (state.lastTranslation) {
+        el.sourceText.value = state.lastTranslation;
+        el.charCount.textContent = `${el.sourceText.value.length} 文字`;
+        el.clearBtn.hidden = !el.sourceText.value.length;
+      }
+      syncLanguageUI();
+      if (el.sourceText.value.trim()) runTranslate();
+    });
+
+    el.formGroup.querySelectorAll("button").forEach(btn => {
+      btn.addEventListener("click", () => {
+        state.form = btn.dataset.form;
+        syncLanguageUI();
+        if (el.sourceText.value.trim()) runTranslate();
+      });
+    });
+
+    el.sourceText.addEventListener("input", () => {
+      const len = el.sourceText.value.length;
+      el.charCount.textContent = `${len} 文字`;
+      el.clearBtn.hidden = len === 0;
+      scheduleAutoTranslate();
+    });
+
+    el.sourceText.addEventListener("keydown", (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+        e.preventDefault();
+        clearTimeout(state.debounceTimer);
+        runTranslate();
+      }
+    });
+
+    el.clearBtn.addEventListener("click", () => {
+      clearTimeout(state.debounceTimer);
+      if (state.abortController) {
+        state.abortController.abort();
+      }
+      el.sourceText.value = "";
+      el.charCount.textContent = "0 文字";
+      el.clearBtn.hidden = true;
+      state.lastTranslation = "";
+      renderTarget("", false);
+      updatePerfBadge(null);
+      showError("");
+      setTranslatingState(false);
+      setStatus("", "AMD Ryzen AI NPU • Ready");
+      el.sourceText.focus();
+    });
+
+    el.stopBtn.addEventListener("click", () => {
+      clearTimeout(state.debounceTimer);
+      if (state.abortController) {
+        state.abortController.abort();
+      }
+    });
+
+    el.translateBtn.addEventListener("click", () => {
+      clearTimeout(state.debounceTimer);
+      runTranslate();
+    });
+
+    el.copyBtn.addEventListener("click", async () => {
+      if (!state.lastTranslation) return;
+      await navigator.clipboard.writeText(state.lastTranslation);
+      const prev = el.copyBtn.textContent;
+      el.copyBtn.textContent = "コピーしました ✓";
+      setTimeout(() => { el.copyBtn.textContent = prev; }, 1200);
+    });
+
+    el.reuseBtn.addEventListener("click", () => {
+      if (!state.lastTranslation) return;
+      const prevTgt = state.targetLang === "ja-easy" ? "ja" : state.targetLang;
+      const nextTgt = state.sourceLang !== "auto" ? state.sourceLang : (prevTgt === "en" ? "ja" : "en");
+      el.sourceText.value = state.lastTranslation;
+      el.charCount.textContent = `${el.sourceText.value.length} 文字`;
+      el.clearBtn.hidden = false;
+      state.sourceLang = prevTgt;
+      state.targetLang = nextTgt;
+      syncLanguageUI();
+      runTranslate();
+    });
+
+    document.querySelectorAll("[data-sample]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const s = SAMPLES[btn.dataset.sample];
+        if (!s) return;
+        state.sourceLang = s.src;
+        state.targetLang = s.tgt;
+        state.form = s.form || "";
+        el.contextInput.value = s.context || "";
+        el.glossaryInput.value = s.glossary || "";
+        if (s.context || s.glossary) {
+          el.advPanel.open = true;
+        }
+        el.sourceText.value = s.text;
+        el.charCount.textContent = `${s.text.length} 文字`;
+        el.clearBtn.hidden = false;
+        syncLanguageUI();
+        runTranslate();
+      });
+    });
+
+    async function init() {
+      try {
+        const res = await fetch("/api/info");
+        const info = await res.json();
+        populateLanguageSelects(info.languages || []);
+        setStatus("", "AMD Ryzen AI NPU • Ready");
+      } catch (e) {
+        setStatus("error", "サーバ接続エラー");
+      }
+    }
+
+    init();
+  </script>
+</body>
+</html>

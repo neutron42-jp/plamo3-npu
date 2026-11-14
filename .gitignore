@@ -1,0 +1,10 @@
+.venv/
+.ryzen_ai_pkg/
+__pycache__/
+*.pyc
+ryzen_ai-*.tgz
+*.tgz
+onnx_utils*.log
+onnxruntime_profile_*.json
+cache_tmp_model_full_reference/
+models/
